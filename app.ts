@@ -20,7 +20,7 @@ function getOrigin(value: string): string | null {
 
 const allowedOrigins = new Set(
   [
-    "http://localhost:5173",
+    "http://localhost:5174",
     "https://wioryleca-meblenawymiar.pl/",
     getOrigin(FRONTEND_BASE_URL),
   ].filter((origin): origin is string => Boolean(origin)),

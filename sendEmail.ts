@@ -22,7 +22,7 @@ export async function sendEmail(
   }
 
   const { error } = await resend.emails.send({
-    from: "Wiory Leca <kontakt@send.wioryleca-meblenawymiar.pl>",
+    from: "Wiory Leca <kontakt@wioryleca-meblenawymiar.pl>",
     to: "mikel538.work@gmail.com",
     subject: "Wiadomosc kontaktowa",
     html: `<p><strong>Kontakt:</strong> ${escapeHtml(contact)}</p>
