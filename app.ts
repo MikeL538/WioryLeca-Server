@@ -58,9 +58,9 @@ app.get("/", (_req, res) => {
 });
 
 app.post("/send-email", async (req, res) => {
-  const { contact, message, preferable } = req.body;
+  const { name, contact, message, preferable } = req.body;
 
-  if (!contact || !message || !preferable) {
+  if (!name || !contact || !message) {
     return res.status(400).json({
       ok: false,
       message: "Missing required fields",
@@ -68,7 +68,12 @@ app.post("/send-email", async (req, res) => {
   }
 
   try {
-    await sendEmail(String(contact), String(message), String(preferable));
+    await sendEmail(
+      String(name),
+      String(contact),
+      String(message),
+      String(preferable),
+    );
 
     return res.status(200).json({ ok: true });
   } catch (error) {

@@ -13,6 +13,7 @@ function escapeHtml(value: string): string {
 }
 
 export async function sendEmail(
+  name: string,
   contact: string,
   message: string,
   preferable: string,
@@ -25,7 +26,8 @@ export async function sendEmail(
     from: "Wiory Leca <kontakt@wioryleca-meblenawymiar.pl>",
     to: "mikel538.work@gmail.com",
     subject: "Wiadomosc kontaktowa",
-    html: `<p><strong>Kontakt:</strong> ${escapeHtml(contact)}</p>
+    html: `<p><strong>Imie i nazwisko:</strong> ${escapeHtml(name)}</p>
+    <p><strong>Kontakt:</strong> ${escapeHtml(contact)}</p>
     <p><strong>Wiadomosc:</strong><br>${escapeHtml(message)}</p>
     <p><strong>Preferencje:</strong> ${escapeHtml(preferable)}</p>`,
   });
