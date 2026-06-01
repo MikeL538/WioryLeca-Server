@@ -10,6 +10,8 @@ export const API_BASE_URL = process.env.API_BASE_URL || "";
 export const FRONTEND_BASE_URL =
   process.env.FRONTEND_BASE_URL || "https://wioryleca-meblenawymiar.pl/";
 
+const CORS_ALLOWED_ORIGINS = process.env.CORS_ALLOWED_ORIGINS || "";
+
 function getOrigin(value: string): string | null {
   try {
     return new URL(value).origin;
@@ -21,19 +23,26 @@ function getOrigin(value: string): string | null {
 const allowedOrigins = new Set(
   [
     "http://localhost:5174",
-    "https://wioryleca-meblenawymiar.pl/",
-    getOrigin(FRONTEND_BASE_URL),
-  ].filter((origin): origin is string => Boolean(origin)),
+    "https://wioryleca-meblenawymiar.pl",
+    FRONTEND_BASE_URL,
+    ...CORS_ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()),
+  ]
+    .map(getOrigin)
+    .filter((origin): origin is string => Boolean(origin)),
 );
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin || allowedOrigins.has(origin)) {
+      const isLocalDevOrigin =
+        origin?.startsWith("http://localhost:") ||
+        origin?.startsWith("http://127.0.0.1:");
+
+      if (!origin || allowedOrigins.has(origin) || isLocalDevOrigin) {
         return callback(null, true);
       }
 
-      return callback(new Error(`CORS blocked for origin: ${origin}`));
+      return callback(null, false);
     },
     methods: ["POST", "OPTIONS"],
     allowedHeaders: ["Content-Type"],
@@ -72,7 +81,7 @@ app.post("/send-email", async (req, res) => {
       String(name),
       String(contact),
       String(message),
-      String(preferable),
+      preferable == null ? "" : String(preferable),
     );
 
     return res.status(200).json({ ok: true });
