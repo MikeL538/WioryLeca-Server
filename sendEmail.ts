@@ -43,7 +43,7 @@ export async function sendEmail(
     throw new Error("MESSAGE_REQUIRED");
   }
 
-  if (trimmedMessage.length > 5000) {
+  if (trimmedMessage.length > 2500) {
     throw new Error("MESSAGE_TOO_LONG");
   }
 
