@@ -24,6 +24,7 @@ const allowedOrigins = new Set(
   [
     "http://localhost:5174",
     "https://wioryleca-meblenawymiar.pl",
+    "https://www.wioryleca-meblenawymiar.pl",
     FRONTEND_BASE_URL,
     ...CORS_ALLOWED_ORIGINS.split(",").map((origin) => origin.trim()),
   ]
