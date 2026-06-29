@@ -22,7 +22,7 @@ function getOrigin(value: string): string | null {
 
 const allowedOrigins = new Set(
   [
-    "http://localhost:5174",
+    "http://localhost:5173",
     "https://wioryleca-meblenawymiar.pl",
     "https://www.wioryleca-meblenawymiar.pl",
     FRONTEND_BASE_URL,
@@ -68,9 +68,9 @@ app.get("/", (_req, res) => {
 });
 
 app.post("/send-email", async (req, res) => {
-  const { name, contact, message, preferable } = req.body;
+  const { name, localization, contact, message, preferable } = req.body;
 
-  if (!name || !contact || !message) {
+  if (!name || !localization || !contact || !message) {
     return res.status(400).json({
       ok: false,
       message: "Missing required fields",
@@ -80,6 +80,7 @@ app.post("/send-email", async (req, res) => {
   try {
     await sendEmail(
       String(name),
+      String(localization),
       String(contact),
       String(message),
       preferable == null ? "" : String(preferable),

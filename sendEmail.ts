@@ -14,11 +14,13 @@ function escapeHtml(value: string): string {
 
 export async function sendEmail(
   name: string,
+  localization: string,
   contact: string,
   message: string,
   preferable: string,
 ) {
   const trimmedName = name.trim();
+  const trimmedLocalization = localization.trim();
   const trimmedContact = contact.trim();
   const trimmedMessage = message.trim();
   const trimmedPreferable = preferable.trim();
@@ -29,6 +31,14 @@ export async function sendEmail(
 
   if (trimmedName.length > 100) {
     throw new Error("NAME_TOO_LONG");
+  }
+
+  if (trimmedLocalization === "") {
+    throw new Error("LOCALIZATION_REQUIRED");
+  }
+
+  if (trimmedLocalization.length > 100) {
+    throw new Error("LOCALIZATION_TOO_LONG");
   }
 
   if (trimmedContact === "") {
@@ -60,6 +70,7 @@ export async function sendEmail(
     to: "wiory_leca@wp.pl",
     subject: "Wiadomosc kontaktowa",
     html: `<p><strong>Imie i nazwisko:</strong> ${escapeHtml(trimmedName)}</p>
+    <p><strong>Lokalizacja:</strong> ${escapeHtml(trimmedLocalization)}</p>
     <p><strong>Kontakt:</strong> ${escapeHtml(trimmedContact)}</p>
     <p><strong>Wiadomosc:</strong><br>${escapeHtml(trimmedMessage)}</p>
     <p><strong>Preferencje:</strong> ${escapeHtml(trimmedPreferable)}</p>`,
