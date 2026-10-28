@@ -1,83 +1,35 @@
 import { Resend } from "resend";
+import type { CreateEmailOptions } from "resend";
+import { validateContact, type ContactMessage } from "./validation.js";
 
-const resendApiKey = process.env.RESEND_API_KEY;
-const resend = resendApiKey ? new Resend(resendApiKey) : null;
-
+type MailClient = { emails: { send: (email: CreateEmailOptions) => Promise<{ data: { id: string } | null; error: unknown }> } };
 function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#039;");
+  return value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#039;");
 }
 
-export async function sendEmail(
-  name: string,
-  localization: string,
-  contact: string,
-  message: string,
-  preferable: string,
-) {
-  const trimmedName = name.trim();
-  const trimmedLocalization = localization.trim();
-  const trimmedContact = contact.trim();
-  const trimmedMessage = message.trim();
-  const trimmedPreferable = preferable.trim();
+export function createEmailSender(client: MailClient | null) {
+  return async (input: ContactMessage): Promise<void> => {
+    const message = validateContact(input);
+    if (!client) throw new Error("EMAIL_SERVICE_NOT_CONFIGURED");
+    const rows = [
+      ["Imię i nazwisko", message.name], ["Lokalizacja", message.localization],
+      ["Kontakt", message.contact], ["Wiadomość", message.message], ["Preferencje", message.preferable],
+    ];
+    const replyTo = /^[^\s<>@,;]+@[^\s<>@,;]+\.[^\s<>@,;]+$/.test(message.contact) ? message.contact : undefined;
+    const { data, error } = await client.emails.send({
+      from: "Wióry Lecą <kontakt@wioryleca-meblenawymiar.pl>",
+      to: "wiory_leca@wp.pl",
+      subject: "Zapytanie ze strony Wióry Lecą",
+      ...(replyTo ? { replyTo } : {}),
+      html: rows.map(([label, value]) => `<p><strong>${label}:</strong><br>${escapeHtml(value).replace(/\r?\n/g, "<br>")}</p>`).join("\n"),
+      text: rows.map(([label, value]) => `${label}:\n${value}`).join("\n\n"),
+    });
+    if (error || !data?.id) throw new Error("EMAIL_SEND_FAILED");
+  };
+}
 
-  if (trimmedName === "") {
-    throw new Error("NAME_REQUIRED");
-  }
-
-  if (trimmedName.length > 100) {
-    throw new Error("NAME_TOO_LONG");
-  }
-
-  if (trimmedLocalization === "") {
-    throw new Error("LOCALIZATION_REQUIRED");
-  }
-
-  if (trimmedLocalization.length > 100) {
-    throw new Error("LOCALIZATION_TOO_LONG");
-  }
-
-  if (trimmedContact === "") {
-    throw new Error("CONTACT_REQUIRED");
-  }
-
-  if (trimmedContact.length > 100) {
-    throw new Error("CONTACT_TOO_LONG");
-  }
-
-  if (trimmedMessage === "") {
-    throw new Error("MESSAGE_REQUIRED");
-  }
-
-  if (trimmedMessage.length > 2500) {
-    throw new Error("MESSAGE_TOO_LONG");
-  }
-
-  if (trimmedPreferable.length > 250) {
-    throw new Error("PREFERABLE_TOO_LONG");
-  }
-
-  if (!resend) {
-    throw new Error("EMAIL_SERVICE_NOT_CONFIGURED");
-  }
-
-  const { error } = await resend.emails.send({
-    from: "Wiory Leca <kontakt@wioryleca-meblenawymiar.pl>",
-    to: "wiory_leca@wp.pl",
-    subject: "Wiadomosc kontaktowa",
-    html: `<p><strong>Imie i nazwisko:</strong> ${escapeHtml(trimmedName)}</p>
-    <p><strong>Lokalizacja:</strong> ${escapeHtml(trimmedLocalization)}</p>
-    <p><strong>Kontakt:</strong> ${escapeHtml(trimmedContact)}</p>
-    <p><strong>Wiadomosc:</strong><br>${escapeHtml(trimmedMessage)}</p>
-    <p><strong>Preferencje:</strong> ${escapeHtml(trimmedPreferable)}</p>`,
-  });
-
-  if (error) {
-    console.log("RESEND ERROR:", error);
-    throw new Error("VERIFICATION_EMAIL_FAILED");
-  }
+// Lazy initialization also makes importing the application safe in tests without credentials.
+export async function sendEmail(input: ContactMessage): Promise<void> {
+  const key = process.env.RESEND_API_KEY;
+  await createEmailSender(key ? new Resend(key) : null)(input);
 }

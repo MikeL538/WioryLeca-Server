@@ -1,168 +1,110 @@
-# WioryLeca Server
+# Wióry Lecą — serwer formularza kontaktowego
 
-Backend API dla formularza kontaktowego strony Wiory Leca Meble na Wymiar. Serwer dziala na Express, TypeScript i Resend.
+Backend Express + TypeScript + Resend dla strony Wióry Lecą. Wdrożenie: funkcja Node na Vercel (`app.ts`). Lokalnie serwer uruchamia `server.ts`.
 
-## Funkcje
+## Uruchomienie lokalne
 
-- endpoint zdrowia aplikacji: `GET /health`
-- endpoint glowny: `GET /`
-- wysylka wiadomosci z formularza kontaktowego: `POST /send-email`
-- walidacja wymaganych pol formularza i limitow dlugosci
-- obsluga CORS dla domen produkcyjnych i lokalnego developmentu
-- konfiguracja przez zmienne srodowiskowe
-
-## Wymagania
-
-- Node.js
-- npm
-- konto Resend i aktywny `RESEND_API_KEY`
-
-## Instalacja
-
-```bash
-npm install
+```sh
+npm ci
 ```
 
-Skopiuj plik `.env.example` do `.env` i uzupelnij wartosci:
+Skopiuj `.env.example` do `.env` (PowerShell: `Copy-Item .env.example .env`) i uzupełnij `RESEND_API_KEY`, jeśli chcesz rzeczywiście wysyłać wiadomości. Następnie:
 
-```bash
-cp .env.example .env
-```
-
-Na Windows PowerShell:
-
-```powershell
-Copy-Item .env.example .env
-```
-
-## Zmienne srodowiskowe
-
-| Zmienna | Opis | Przyklad |
-| --- | --- | --- |
-| `RESEND_API_KEY` | Klucz API uslugi Resend wymagany do wysylki emaili. | `re_...` |
-| `PORT` | Port lokalnego serwera. | `3000` |
-| `API_BASE_URL` | Bazowy adres API, przydatny dla konfiguracji srodowiska. | `http://localhost:3000` |
-| `FRONTEND_BASE_URL` | Bazowy adres frontendu dopuszczony w CORS. | `https://wioryleca-meblenawymiar.pl` |
-| `CORS_ALLOWED_ORIGINS` | Dodatkowe dozwolone originy oddzielone przecinkami. | `http://localhost:5173,https://example.com` |
-
-`DATABASE_URL` znajduje sie w `.env.example`, ale aktualny kod serwera go nie uzywa.
-
-## Uruchomienie
-
-Tryb developerski z automatycznym restartem:
-
-```bash
+```sh
 npm run dev
 ```
 
-Build TypeScript:
+Lokalnie bez Redis działa limit w pamięci procesu. Restart zeruje licznik. Tego trybu nie używamy na produkcji. Port domyślny: `3000`. Originy `http://localhost:<port>` oraz `http://127.0.0.1:<port>` są automatycznie dopuszczane tylko poza produkcją.
 
-```bash
-npm run build
-```
+## Wdrożenie na Vercel — wymagane ustawienia
 
-Uruchomienie zbudowanej aplikacji:
+**Przed wdrożeniem ustaw Redis.** Na Vercel (`VERCEL=1`) oraz przy `NODE_ENV=production` wysyłka wymaga wspólnego magazynu limitów. Brak konfiguracji lub awaria magazynu daje `503` i nie uruchamia Resend. `/health` potwierdza tylko działanie procesu, nie gotowość poczty ani Redis.
 
-```bash
-npm start
-```
+1. Utwórz bazę Upstash Redis lub podłącz ją przez Vercel Marketplace. Nie trzeba instalować klienta Redis — backend używa REST API.
+2. W Vercel → Project → Settings → Environment Variables ustaw poniższe wartości. Klucze ustawiaj wyłącznie na backendzie.
+3. Upewnij się, że domena `wioryleca-meblenawymiar.pl` jest zweryfikowana w Resend, a klucz ma uprawnienie wysyłania z tej domeny.
+4. Wdróż backend ponownie. Dla Preview najlepiej użyć osobnej bazy, aby testy nie zużywały limitów produkcji.
 
-## Endpointy
+| Zmienna | Znaczenie |
+| --- | --- |
+| `RESEND_API_KEY` | Klucz Resend; wymagany do wysyłki. |
+| `UPSTASH_REDIS_REST_URL` | Adres HTTPS REST bazy Upstash. |
+| `UPSTASH_REDIS_REST_TOKEN` | Token z prawem zapisu, nie token tylko do odczytu. |
+| `FRONTEND_BASE_URL` | Dodatkowy dozwolony adres frontendu. Obie domeny produkcyjne, z `www` i bez, są zawsze dozwolone. |
+| `CORS_ALLOWED_ORIGINS` | Opcjonalna lista dodatkowych originów rozdzielonych przecinkiem, np. adres konkretnego podglądu. |
+| `PORT` | Port serwera lokalnego, domyślnie 3000. |
 
-### `GET /health`
+Nie dodawaj localhost do produkcyjnej listy originów. Nie umieszczaj sekretów w repozytorium ani zmiennych `VITE_*`. `.env`, jego warianty i `.vercel/` są ignorowane przez Git.
 
-Zwraca status aplikacji.
+## API
 
-Przykladowa odpowiedz:
+### `GET /health` i `GET /`
 
-```json
-{
-  "ok": true,
-  "service": "WioryLeca Meblenawymiar server is running",
-  "message": "WioryLeca Meblenawymiar server is running"
-}
-```
-
-### `GET /`
-
-Zwraca taki sam status jak `/health`.
+Liveness: `200 { "ok": true, "service": "Wiory Leca contact API" }`. Odpowiedź nie sprawdza zewnętrznych usług i nie ujawnia konfiguracji.
 
 ### `POST /send-email`
 
-Wysyla email kontaktowy przez Resend.
-
-Body:
+Nagłówek: `Content-Type: application/json`. Maksymalny rozmiar JSON: 16 KiB.
 
 ```json
 {
   "name": "Jan Kowalski",
+  "localization": "Wrocław",
   "contact": "jan@example.com",
-  "message": "Prosze o kontakt w sprawie wyceny.",
+  "message": "Proszę o wycenę kuchni.",
   "preferable": "Telefon po 16:00"
 }
 ```
 
-Wymagane pola:
+| Pole | Wymagane | Maksymalna długość po usunięciu skrajnych spacji |
+| --- | --- | --- |
+| `name` | tak | 100 |
+| `localization` | tak | 100 |
+| `contact` | tak | 100 |
+| `message` | tak | 2500 |
+| `preferable` | nie | 250 |
 
-- `name`
-- `contact`
-- `message`
+Wartości muszą być tekstem. Obiekty, tablice, liczby i `null` są odrzucane. Pole opcjonalne można pominąć lub wysłać jako pusty tekst. Wymagane pola nie mogą zawierać wyłącznie białych znaków. Nieznane pola nie są przekazywane dalej. `contact` może zawierać telefon lub e-mail; nie wymuszamy samego e-maila.
 
-Opcjonalne pole:
+| Status | Znaczenie |
+| --- | --- |
+| `200` | Resend przyjął wiadomość i zwrócił identyfikator; `{ "ok": true }`. Nie jest to dowód dostarczenia do skrzynki. |
+| `400` | Błędny JSON, typ, puste pole lub przekroczony limit; `{ "ok": false, "code": "...", "field": "..." }` dla błędów pól. |
+| `403` | Niedozwolony Origin. |
+| `413` | Zbyt duże żądanie. |
+| `415` | Wymagany JSON lub nieobsługiwane kodowanie. |
+| `429` | Przekroczony limit; nagłówek `Retry-After` określa liczbę sekund do ponowienia. |
+| `502` | Wysyłka nie została potwierdzona przez Resend. |
+| `503` | Magazyn limitów nie działa, brakuje jego konfiguracji lub poprawnego IP platformy. |
 
-- `preferable`
+Obecny frontend jest zgodny z tym kontraktem i pokazuje ogólny komunikat błędu przy odpowiedziach innych niż 2xx. Osobny komunikat dla `429` można dodać później. Nie ponawiaj automatycznie wysyłki po niejednoznacznym timeout — wiadomość mogła już zostać przyjęta.
 
-Limity:
+## Ochrona formularza
 
-- `name`: maksymalnie 100 znakow
-- `contact`: maksymalnie 100 znakow
-- `message`: maksymalnie 2500 znakow
-- `preferable`: maksymalnie 250 znakow
+- Maksymalnie **5 prób na IP / 15 minut** oraz **50 prób globalnie / godzinę**. Wspólna operacja Lua atomowo sprawdza i zużywa oba limity. Okno zaczyna się od pierwszej zaakceptowanej próby. Odrzucone próby nie przedłużają okna. Błąd Resend również zużywa próbę; błędny formularz nie zużywa limitu wysyłki.
+- Na Vercel IP pochodzi z nagłówka platformy `x-vercel-forwarded-for`. Poza Vercel używamy bezpośredniego adresu połączenia, ignorując przesłane przez klienta nagłówki proxy. Nie ustawiaj ręcznie `VERCEL=1` na innym hostingu. Wdrożenie za innym reverse proxy wymaga osobnej konfiguracji zaufania.
+- W Redis zapisujemy liczniki i hash IP z czasem wygaśnięcia, bez treści formularza. Wszystkie instancje korzystające z tej samej bazy i przestrzeni `contact:{quota}` dzielą limity.
+- Nieznane originy są odrzucane. Brak nagłówka Origin nie omija walidacji ani limitów. CORS nie jest ochroną przed botami.
+- Limity ograniczają skalę nadużyć, ale nie rozpoznają człowieka; atakujący może wyczerpać globalny limit. Jeśli pojawi się spam, kolejnym krokiem jest WAF lub weryfikacja antybotowa wraz z tokenem z frontendu.
+- Treść maila jest escapowana, nowe linie zachowane, dołączona jest wersja tekstowa. `Reply-To` jest ustawiany tylko dla kontaktu wyglądającego jak pojedynczy adres e-mail. Odbiorca pozostaje stały: `wiory_leca@wp.pl`.
+- Logi błędów nie zawierają treści formularza, sekretów ani pełnych odpowiedzi dostawcy.
 
-Poprawna odpowiedz:
+## Testy i CI
 
-```json
-{
-  "ok": true
-}
+```sh
+npm test
 ```
 
-Brak wymaganych pol:
+Polecenie buduje TypeScript i uruchamia testy Node. Testy HTTP otwierają tylko lokalny port i korzystają z atrap wysyłki oraz magazynu Redis. Nie wysyłają wiadomości i nie wymagają kluczy. GitHub Actions wykonuje `npm ci` i `npm test` na push oraz PR; nie wdraża aplikacji.
 
-```json
-{
-  "ok": false,
-  "message": "Missing required fields"
-}
-```
+Zakres: typy i granice długości wszystkich pól, JSON, limit body, CORS i preflight, IP i nagłówki proxy, limity i ich wygaśnięcie, błędy magazynu, kontrakt REST Redis, HTML/text/Reply-To oraz odrzucenia Resend. Testy nie potwierdzają konfiguracji prawdziwego Redis, DNS ani dostarczenia poczty; trzeba to sprawdzić po wdrożeniu.
 
-Blad wysylki:
+## Końcowa kontrola po wdrożeniu
 
-```json
-{
-  "ok": false,
-  "message": "Email could not be sent"
-}
-```
+1. Sprawdź `GET /health` — oczekiwane 200.
+2. Z rzeczywistej strony wyślij jedno wyraźnie oznaczone zapytanie testowe. Sprawdź odpowiedź 200, wpis w Resend oraz skrzynkę WP i spam.
+3. Sprawdź, czy „Odpowiedz” kieruje na adres klienta, jeśli w formularzu podano e-mail. Przy telefonie dane kontaktowe pozostają w treści.
+4. Sprawdź osobno wersję mobilną i zmianę języka frontendu.
+5. Limity i awarie sprawdzaj na Preview z osobną bazą oraz atrapą Resend, aby nie wysyłać serii prawdziwych wiadomości i nie blokować klientów.
 
-## Deploy
-
-Projekt zawiera `vercel.json`, ktory konfiguruje `app.ts` jako funkcje Vercel Node.
-
-Przed deployem ustaw w panelu Vercel wymagane zmienne srodowiskowe:
-
-- `RESEND_API_KEY`
-- `FRONTEND_BASE_URL`
-- `CORS_ALLOWED_ORIGINS`, jesli potrzebne sa dodatkowe domeny
-
-## Struktura projektu
-
-```text
-.
-|-- app.ts          # konfiguracja Express, CORS i endpointow
-|-- server.ts       # lokalne uruchomienie serwera
-|-- sendEmail.ts    # walidacja i wysylka emaila przez Resend
-|-- vercel.json     # konfiguracja deployu na Vercel
-|-- tsconfig.json   # konfiguracja TypeScript
-`-- package.json    # skrypty i zaleznosci npm
-```
+Dokumentacja: [nagłówki Vercel](https://vercel.com/docs/headers/request-headers), [Upstash REST API](https://upstash.com/docs/redis/features/restapi), [CORS w Express](https://expressjs.com/en/resources/middleware/cors/).

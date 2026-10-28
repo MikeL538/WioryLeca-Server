@@ -1,24 +1,13 @@
-# Keep environment variables out of version control
-.env
-
-# Node modules
 node_modules/
-
-# Environment variables
-.env
-
-# Prisma generated files
-/generated/prisma
-prisma/migrations/
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# TS build output
 dist/
 build/
-
-# VSCode settings
+.env
+.env.*
+!.env.example
+.vercel/
+coverage/
+*.log
+*.tsbuildinfo
 .vscode/
+.idea/
+.DS_Store
